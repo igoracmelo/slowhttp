@@ -1,0 +1,8 @@
+POST / HTTP/1.1
+Host: localhost:12345
+Connection: keep-alive
+Sec-GPC: 1
+Accept-Language: pt-BR,pt
+Accept-Encoding: gzip, deflate, br
+
+hello world
