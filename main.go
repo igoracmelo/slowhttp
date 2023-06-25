@@ -125,6 +125,9 @@ func (r *Request) Head() []byte {
 
 	sMethod := NameByMethod[r.Method]
 	sTarget := r.URL.Path
+	if sTarget == "" {
+		sTarget = "/"
+	}
 	if r.URL.RawQuery != "" {
 		sTarget += "?" + r.URL.RawQuery
 	}
