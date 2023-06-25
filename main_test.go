@@ -2,8 +2,10 @@ package slowhttp
 
 import (
 	"io"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func Test_Request_Head(t *testing.T) {
@@ -67,5 +69,56 @@ func Test_ReadResponse(t *testing.T) {
 
 	if string(body) != "body!" {
 		t.Errorf("body - want: 'body', got: %s", string(body))
+	}
+}
+
+func Test_Client_Do(t *testing.T) {
+	c := Client{}
+
+	want := "this is \nthe body!!\n\n"
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(want))
+	})
+	go func() {
+		err := http.ListenAndServe(":1234", nil)
+		panic(err)
+	}()
+
+	for {
+		_, err := http.Get("http://localhost:1234")
+		if err == nil {
+			break
+		}
+		t.Log(err)
+		time.Sleep(time.Second)
+	}
+
+	req, err := NewRequest(MethodPost, "http://localhost:1234", nil, strings.NewReader("somebody"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Status != StatusOK {
+		t.Errorf("server responded with status %s (%d)", resp.Status.String(), resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(body)
+	if got != want {
+		t.Errorf("body - want: %s, got: %s", want, got)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		t.Fatal(err)
 	}
 }

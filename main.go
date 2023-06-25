@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -227,4 +228,28 @@ type Version struct {
 
 func (v Version) String() string {
 	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
+}
+
+type Client struct{}
+
+func (c *Client) Do(req *Request) (*Response, error) {
+	conn, err := net.Dial("tcp", req.URL.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	head := req.Head()
+	_, err = conn.Write(head)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Body != nil {
+		_, err := io.Copy(conn, req.Body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ReadResponse(conn)
 }
