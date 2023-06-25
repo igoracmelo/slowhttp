@@ -1,9 +1,12 @@
 package slowhttp
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
+	"strconv"
 )
 
 type Method uint8
@@ -124,6 +127,8 @@ func (r *Request) Head() []byte {
 
 type Response struct {
 	Version Version
+	Status  Status
+	Headers Headers
 	Body    io.ReadCloser
 }
 
@@ -178,6 +183,8 @@ func ReadResponse(r io.ReadCloser) (*Response, error) {
 		if len(matches) != 3 {
 			return nil, fmt.Errorf("invalid header line: '%s'", line)
 		}
+
+		headers.Add(matches[1], matches[2])
 	}
 
 	return &Response{

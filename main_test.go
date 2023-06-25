@@ -41,7 +41,7 @@ func Test_ReadResponse(t *testing.T) {
 		io.Reader
 		io.Closer
 	}{
-		Reader: strings.NewReader("HTTP/2.5 OK\n\nbody!"),
+		Reader: strings.NewReader("HTTP/2.5 OK\nMessage: be cool : )\n\nbody!"),
 	}
 
 	resp, err := ReadResponse(r)
@@ -54,6 +54,10 @@ func Test_ReadResponse(t *testing.T) {
 	}
 	if resp.Version.Minor != 5 {
 		t.Errorf("Version.Minor - want: 5, got: %v", resp.Version.Minor)
+	}
+
+	if resp.Headers.Get("Message") != "be cool : )" {
+		t.Errorf("want header Message:\nbe cool : ), got:\n%s", resp.Headers.Get("Message"))
 	}
 
 	body, err := io.ReadAll(resp.Body)
