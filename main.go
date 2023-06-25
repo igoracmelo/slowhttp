@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 type Method uint8
@@ -23,7 +24,7 @@ const (
 	MethodPatch
 )
 
-var MethodByNumber = []string{
+var NameByMethod = []string{
 	MethodGet:     "GET",
 	MethodHead:    "HEAD",
 	MethodPost:    "POST",
@@ -37,15 +38,28 @@ var MethodByNumber = []string{
 
 type Status uint16
 
+func (s Status) String() string {
+	if int(s) >= len(NameByStatus) {
+		return fmt.Sprintf("UNKNOWN (%d)", s)
+	}
+	return NameByStatus[s]
+}
+
 // TODO
 const (
-	StatusOK       Status = 200
-	StatusNotFound Status = 404
+	StatusOK         Status = 200
+	StatusBadRequest Status = 400
 )
 
 // TODO
-var Statuses = map[string]Status{
-	"OK": StatusOK,
+var StatusByName = map[string]Status{
+	"200 OK":          StatusOK,
+	"400 Bad Request": StatusBadRequest,
+}
+
+// TODO
+var NameByStatus = []string{
+	StatusOK: "200 OK",
 }
 
 // TODO: canonicalize
@@ -109,7 +123,7 @@ func NewRequest(method Method, rawURL string, headers Headers, body io.Reader) (
 func (r *Request) Head() []byte {
 	s := ""
 
-	sMethod := MethodByNumber[r.Method]
+	sMethod := NameByMethod[r.Method]
 	sTarget := r.URL.Path
 	if r.URL.RawQuery != "" {
 		sTarget += "?" + r.URL.RawQuery
@@ -139,8 +153,9 @@ func ReadResponse(r io.ReadCloser) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	line = strings.TrimSpace(line)
 
-	re := regexp.MustCompile(`HTTP/(\d+)\.(\d+) (.*)\n`)
+	re := regexp.MustCompile(`HTTP/(\d+)\.(\d+) (.*)`)
 	matches := re.FindStringSubmatch(line)
 	if len(matches) != 4 {
 		return nil, fmt.Errorf("couldn't recognize first line '%s' (%d matches)", line, len(matches))
@@ -160,22 +175,23 @@ func ReadResponse(r io.ReadCloser) (*Response, error) {
 	}
 
 	version := Version{maj, min}
-	stat, ok := Statuses[sStat]
+	stat, ok := StatusByName[sStat]
 	if !ok {
 		return nil, fmt.Errorf("unknown http status '%s'", sStat)
 	}
 
-	re = regexp.MustCompile(`(.*?):\s*(.*)\n`)
+	re = regexp.MustCompile(`(.*?):\s*(.*)`)
 	headers := Headers{}
 	for {
 		line, err := buf.ReadString('\n')
+		line = strings.TrimSpace(line)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		if line == "\n" {
+		if line == "" {
 			break
 		}
 
