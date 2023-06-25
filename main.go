@@ -127,6 +127,73 @@ type Response struct {
 	Body    io.ReadCloser
 }
 
+func ReadResponse(r io.ReadCloser) (*Response, error) {
+	buf := bufio.NewReader(r)
+
+	line, err := buf.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	re := regexp.MustCompile(`HTTP/(\d+)\.(\d+) (.*)\n`)
+	matches := re.FindStringSubmatch(line)
+	if len(matches) != 4 {
+		return nil, fmt.Errorf("couldn't recognize first line '%s' (%d matches)", line, len(matches))
+	}
+
+	sMaj := matches[1]
+	sMin := matches[2]
+	sStat := matches[3]
+
+	maj, err := strconv.Atoi(sMaj)
+	if err != nil {
+		return nil, fmt.Errorf("invalid major number '%s'", sMaj)
+	}
+	min, err := strconv.Atoi(sMin)
+	if err != nil {
+		return nil, fmt.Errorf("invalid minor number '%s'", sMin)
+	}
+
+	version := Version{maj, min}
+	stat, ok := Statuses[sStat]
+	if !ok {
+		return nil, fmt.Errorf("unknown http status '%s'", sStat)
+	}
+
+	re = regexp.MustCompile(`(.*?):\s*(.*)\n`)
+	headers := Headers{}
+	for {
+		line, err := buf.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if line == "\n" {
+			break
+		}
+
+		matches := re.FindStringSubmatch(line)
+		if len(matches) != 3 {
+			return nil, fmt.Errorf("invalid header line: '%s'", line)
+		}
+	}
+
+	return &Response{
+		Version: version,
+		Status:  stat,
+		Headers: headers,
+		Body: struct {
+			io.Reader
+			io.Closer
+		}{
+			Reader: buf,
+			Closer: r,
+		},
+	}, nil
+}
+
 type Version struct {
 	Major int
 	Minor int

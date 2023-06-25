@@ -1,6 +1,7 @@
 package slowhttp
 
 import (
+	"io"
 	"strings"
 	"testing"
 )
@@ -32,5 +33,35 @@ func Test_Request_Head(t *testing.T) {
 		if !strings.Contains(head, test) {
 			t.Errorf("must contain '%s'", test)
 		}
+	}
+}
+
+func Test_ReadResponse(t *testing.T) {
+	r := struct {
+		io.Reader
+		io.Closer
+	}{
+		Reader: strings.NewReader("HTTP/2.5 OK\n\nbody!"),
+	}
+
+	resp, err := ReadResponse(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Version.Major != 2 {
+		t.Errorf("Version.Major - want: 2, got: %v", resp.Version.Major)
+	}
+	if resp.Version.Minor != 5 {
+		t.Errorf("Version.Minor - want: 5, got: %v", resp.Version.Minor)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(body) != "body!" {
+		t.Errorf("body - want: 'body', got: %s", string(body))
 	}
 }
